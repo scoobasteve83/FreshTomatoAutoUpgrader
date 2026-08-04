@@ -1,7 +1,8 @@
 #!/bin/sh
 # =========================================================================
 # UNIVERSAL FRESHTOMATO AUTO-UPGRADER SCRIPT (Public Release Edition)
-# License: MIT (Without Warranty)
+# License: MIT (Without Warranty) UNTESTED WIP DO NOT USE IN PRODUCTION ENVIORNMENT
+# WILL LIKELY BRICK YOUR EQUIPMENT ONLY A POC (Proof Of Concept) 
 # =========================================================================
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
 
