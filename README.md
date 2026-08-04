@@ -1,4 +1,4 @@
-Note this script is Untested WIP (Work In Progress) and will likely brick your router DO NOT USE!!!!
+Note this script is Untested WIP (Work In Progress) and will likely brick your router. May have security implications and is only a proof of concept DO NOT USE IN CURRRENT FORM OR PRODUCTION ENVIORNMENT!!!!
 
 # FreshTomatoAutoUpgrader
 FrestTomatoAutoUpgrade
