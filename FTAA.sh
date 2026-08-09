@@ -74,11 +74,11 @@ ping -c 2 8.8.8.8 >/dev/null 2>&1 || { log_security_event "Network unreachable. 
 # 4. SECURE MULTI-PATH DUAL-DOMAIN DNS CROSS-REFERENCE (Anti-Poisoning Filter)
 # Validates both server domains against a neutral public recursive resolver
 FT_TRUE_IP=$(nslookup freshtomato.org/downloads 8.8.8.8 | $AWK '/Address/ {print $3}' | $GREP -v '8.8.8.8' | head -n 1)
-FT_CURL_IP=$(nslookup freshtomato.org | $AWK '/Address/ {print $3}' | head -n 1)
+FT_CURL_IP=$(nslookup freshtomato.org/downloads | $AWK '/Address/ {print $3}' | head -n 1)
 [ "$FT_TRUE_IP" != "$FT_CURL_IP" ] && { log_security_event "DNS Hijack Detected on freshtomato.org! Authority mismatch."; exit 1; }
 
 T64_TRUE_IP=$(nslookup tomato64.org/files 8.8.8.8 | $AWK '/Address/ {print $3}' | $GREP -v '8.8.8.8' | head -n 1)
-T64_CURL_IP=$(nslookup tomato64.org | $AWK '/Address/ {print $3}' | head -n 1)
+T64_CURL_IP=$(nslookup tomato64.org/files | $AWK '/Address/ {print $3}' | head -n 1)
 [ "$T64_TRUE_IP" != "$T64_CURL_IP" ] && { log_security_event "DNS Hijack Detected on tomato64.org! Authority mismatch."; exit 1; }
 
 # 5. AUTOMATED PARTITION MEMORY PROTECTION AUDIT
