@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # ======DO NOT USE ON YOUR EQUIPMENT IT IS ONLY A BETA PROOF OF CONCEPT!!!!!!!===========
+# THIS IS NOT TESTED WILL BRICK YOUR ROUTER WARNING!!!
 # UNIVERSAL FRESHTOMATO & TOMATO64 AUTO-UPGRADER SCRIPT (HARDENED PUBLIC POC)
 # License: MIT
 # Fully secure cross-platform upgrade utility utilizing native CA bundles.
