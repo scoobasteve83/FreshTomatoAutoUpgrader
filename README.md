@@ -2,19 +2,38 @@ Note this script is Untested WIP (Work In Progress) and will likely brick your r
 
 # FreshTomatoAutoUpgrader
 FrestTomatoAutoUpgrade
-# Universal FreshTomato Daily Auto-Upgrader Script
+# Universal Hardened Auto-Upgrader for Tomato64 & FreshTomato
 
 A low-footprint, zero-dependency, automated deployment script written in POSIX-compliant shell for FreshTomato routers (ARM and MIPS). Designed to be ran via the built-in system scheduler once every 24 hours to automatically maintain network security patches without manual intervention.
 
 ## Architectural Safeguards
 
-This script is built defensively with strict "fail-fast" gates to protect consumer-grade hardware from standard network and operational hazards:
-* **Dynamic Environment Check:** Identifies the router chipset flavor (`K26ARM` vs `K26RT-N`) and board layout directly from active `nvram` registers.
-* **Network Integrity Validation:** Leverages dynamic `nslookup` queries against upstream Anycast recursive nodes (`8.8.8.8`) to cross-reference IPs and block localized Man-in-the-Middle (MitM) DNS hijacking.
-* **NTP Synchronization Lock:** Aborts execution instantly if the local system hardware clock has not established a real-world time anchor via network synchronization.
-* **Resource Boundary Protection:** Monitors active system mount loops. Automatically routes decompression buffers to persistent external media (USB storage) if present, or enforces strict volatile memory buffer boundaries (>25MB free RAM) before initializing download blocks.
-* **Cryptographic Signature Engine:** Automatically evaluates the host environment for the strongest native utility (`sha256sum` or `md5sum`), downloads the corresponding vendor manifest, and cancels flash sequence instantly on a single bit mismatch.
-* **Anti-Rate Limiting Controls:** Uses browser User-Agent spoofing arrays combined with execution delay intervals (`sleep`) to naturally pass server rate thresholds and maintain low network impact.
+
+
+A zero-trust, automated public Proof-of-Concept upgrade script built specifically for routers running FreshTomato (32-bit MIPS/ARM) and Tomato64 (ARM64/x86_64). 
+
+## Security & Hardening Architecture
+
+This script implements robust mitigation layers to eliminate path injection vulnerabilities, man-in-the-middle exploits, and hardware bricking without modifying the firmware.
+
+*   **Enforced TLS Verification:** Bypasses unsafe `-k` or `--insecure` parameters. The upgrade engine explicitly maps transfers through the router's read-only root certificate store (`/etc/ssl/certs/ca-certificates.crt`).
+*   **Dynamic Multi-Server Cross-Routing:** Natively detects system architecture using `uname -m`. It targets the proper endpoint structures automatically—routing legacy hardware to `freshtomato.org/downloads/` and modern 64-bit boards to the `tomato64.org/files/` layout.
+*   **Anti-Poisoning DNS Canary Filter:** Cross-references internal lookups with independent public resolvers (Google `8.8.8.8`) before running remote queries. Execution drops instantly if local cache anomalies or DNS manipulation are detected.
+*   **`HDR0` Structural Integrity Auditing:** Inspects the first 4 uncompressed bytes of the extracted firmware binary to verify the presence of the mandatory Broadcom/MediaTek `HDR0` signature before initiating flash operations.
+*   **Metadata Boundary Boundary Matches:** Evaluates structural byte limits encoded within the file headers against the physical storage footprint, completely eliminating partial download execution attempts.
+*   **Absolute Path Execution Sandboxing:** Binds execution commands to explicit system locations (e.g., `/usr/bin/curl`, `/bin/grep`), neutralizing variable runtime overrides.
+
+## How to Test via Simulation Mode
+
+By default, the script ships with **`SIMULATION_MODE=1`** enabled at the top of the file. This allows safe runtime testing across any target environment.
+
+1. Copy the full script text block.
+2. In the router Web GUI, navigate to **Status > Logs** or open your favorite syslog tail viewer via SSH (`logread -f`).
+3. Run the script manually over an SSH session or via **Tools > System Commands**.
+4. Check the logs. A successful pass will output:
+   `FTAA_SECURE_UPGRADER [STATUS] DRY-RUN SUCCESSFUL: Payload verified authentic. Flashing skipped...`
+5. Once verified, change `SIMULATION_MODE=0` inside the script wrapper to arm live deployment automation.
+
 
 ## Installation via GUI Scheduler
 
