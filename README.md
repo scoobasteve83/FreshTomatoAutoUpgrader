@@ -2,6 +2,8 @@ Note this script is Untested WIP (Work In Progress) and will likely brick your r
 
 Use of this auto upgrader requires a usb port on your router and a known working usb flash drive!
 
+#CURRENT STATUS: UNTESTED BETA DO NOT USE MAY BRICK YOUR ROUTER! 
+
 # FreshTomatoAutoUpgrader
 FrestTomatoAutoUpgrade
 # Universal Hardened Auto-Upgrader for Tomato64 & FreshTomato
