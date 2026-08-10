@@ -83,7 +83,7 @@ T64_CURL_IP=$(nslookup tomato64.org/files | $AWK '/Address/ {print $3}' | head -
 [ "$T64_TRUE_IP" != "$T64_CURL_IP" ] && { log_security_event "DNS Hijack Detected on tomato64.org! Authority mismatch."; exit 1; }
 
 # 5. AUTOMATED PARTITION MEMORY PROTECTION AUDIT
-log_security_event "Initiating partition memory audit and configuration backup target detection..."
+log_security_event "Initiating strict USB hardware partition dependency audit..."
 
 # Force-enable USB and Storage Services in NVRAM if turned off
 USB_CHANGED=0
@@ -98,43 +98,24 @@ if [ $USB_CHANGED -eq 1 ]; then
     sleep 5 
 fi
 
-W="/tmp"
-USB_BACKUP_PATH=""
-CHECK_COUNT=0
-MAX_ATTEMPTS=3
-SKIP_BACKUP=0
-
-while [ "$W" = "/tmp" ]; do
-    for m in /tmp/mnt/* /mnt/*; do 
-        [ -d "$m" ] && [ "$m" != "/tmp/mnt/*" ] && [ "$m" != "/mnt/*" ] && [ "$(df -k "$m" | $AWK 'NR==2{print $4}')" -gt 61440 ] && W="$m" && break 
-    done
-    
-    if [ "$W" != "/tmp" ]; then
-        USB_BACKUP_PATH="$W"
-        break
-    fi
-    
-    CHECK_COUNT=$((CHECK_COUNT + 1))
-    if [ $CHECK_COUNT -eq $MAX_ATTEMPTS ]; then
-        log_security_event "Bad USB No USB no configuration backup was taken."
-        echo "==============================================================="
-        echo " ERROR: Bad USB No USB no configuration backup was taken."
-        echo " Bypassing backup target selection. Workspace falling back to RAM."
-        echo "==============================================================="
-        SKIP_BACKUP=1
-        break
-    fi
-    
-    echo "==============================================================="
-    echo " WARNING: NO USB STORAGE DETECTED! (Attempt $CHECK_COUNT of $MAX_ATTEMPTS)"
-    echo " Please insert a FAT32/EXT4 formatted USB drive into the router."
-    echo " Retrying detection in 10 seconds... (Press Ctrl+C to abort)"
-    echo "==============================================================="
-    log_security_event "Waiting for physical USB storage insertion (Attempt $CHECK_COUNT)..."
-    sleep 10
+W=""
+for m in /tmp/mnt/* /mnt/*; do 
+    [ -d "$m" ] && [ "$m" != "/tmp/mnt/*" ] && [ "$m" != "/mnt/*" ] && [ "$(df -k "$m" | $AWK 'NR==2{print $4}')" -gt 61440 ] && W="$m" && break 
 done
 
-[ "$W" = "/tmp" ] && [ "$($AWK '/MemAvailable/{print $2}' /proc/meminfo)" -lt 25600 ] && { log_security_event "Insufficient execution memory available."; exit 1; }
+# Hardware Enforcement Boundary: Halt entirely if no USB partition matches the criteria
+if [ -z "$W" ] || [ "$W" = "/tmp" ]; then
+    log_security_event "CRITICAL: Script configured for USB hardware ONLY. No valid USB workspace detected. Aborting."
+    echo "==============================================================="
+    echo " ERROR: Hardware dependency validation failed!"
+    echo " This script can only be executed on routers with attached USB storage."
+    echo "==============================================================="
+    exit 1
+fi
+
+USB_BACKUP_PATH="$W"
+SKIP_BACKUP=0
+log_security_event "USB hardware validation successful. Dedicated workspace established at: $W"
 
 # 6. ENFORCED TLS SCRAPING INTERFACE ENTRY (Stripped of -k bypasses)
 UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -223,6 +204,7 @@ fi
 
 # 10. SYSTEM BLOCK DECOMPRESSION AND HARDENED TRX EVALUATION
 $UNZIP -p "$W/f.zip" "*.trx" > $W/u.trx
+
 if [ -s "$W/u.trx" ]; then
     # Structural Audit: Enforce mandatory Broadcom/MediaTek 'HDR0' magic bytes signature
     TRX_MAGIC=$($HEXDUMP -n 4 -e '"%c"' "$W/u.trx" 2>/dev/null)
@@ -248,7 +230,14 @@ if [ -s "$W/u.trx" ]; then
         rm -f $W/f.zip $W/s.txt $W/u.trx
         exit 0
     else
-        log_security_event "Payload verified. Commencing hardware image installation wrapper..."
+        log_security_event "Payload verified. Revoking execution rights on physical USB media before write invocation..."
+        
+        # Self-destruct flag: Removes executable status from the physical USB drive
+        chmod -x "$0"
+        sync
+        sleep 1
+        
+        log_security_event "Commencing hardware image installation wrapper..."
         $WRITE $W/u.trx linux && $REBOOT
     fi
 fi
