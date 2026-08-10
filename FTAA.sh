@@ -83,10 +83,57 @@ T64_CURL_IP=$(nslookup tomato64.org/files | $AWK '/Address/ {print $3}' | head -
 [ "$T64_TRUE_IP" != "$T64_CURL_IP" ] && { log_security_event "DNS Hijack Detected on tomato64.org! Authority mismatch."; exit 1; }
 
 # 5. AUTOMATED PARTITION MEMORY PROTECTION AUDIT
+log_security_event "Initiating partition memory audit and configuration backup target detection..."
+
+# Force-enable USB and Storage Services in NVRAM if turned off
+USB_CHANGED=0
+if [ "$($NVRAM get usb_enable)" != "1" ]; then $NVRAM set usb_enable=1; USB_CHANGED=1; fi
+if [ "$($NVRAM get usb_storage)" != "1" ]; then $NVRAM set usb_storage=1; USB_CHANGED=1; fi
+if [ "$($NVRAM get usb_automount)" != "1" ]; then $NVRAM set usb_automount=1; USB_CHANGED=1; fi
+
+if [ $USB_CHANGED -eq 1 ]; then
+    log_security_event "USB storage services were disabled. Enabling and restarting USB driver..."
+    $NVRAM commit
+    service usb restart
+    sleep 5 
+fi
+
 W="/tmp"
-for m in /tmp/mnt/* /mnt/*; do
-    [ -d "$m" ] && [ "$m" != "/tmp/mnt/*" ] && [ "$m" != "/mnt/*" ] && [ "$(df -k "$m" | $AWK 'NR==2{print $4}')" -gt 61440 ] && W="$m" && break
+USB_BACKUP_PATH=""
+CHECK_COUNT=0
+MAX_ATTEMPTS=3
+SKIP_BACKUP=0
+
+while [ "$W" = "/tmp" ]; do
+    for m in /tmp/mnt/* /mnt/*; do 
+        [ -d "$m" ] && [ "$m" != "/tmp/mnt/*" ] && [ "$m" != "/mnt/*" ] && [ "$(df -k "$m" | $AWK 'NR==2{print $4}')" -gt 61440 ] && W="$m" && break 
+    done
+    
+    if [ "$W" != "/tmp" ]; then
+        USB_BACKUP_PATH="$W"
+        break
+    fi
+    
+    CHECK_COUNT=$((CHECK_COUNT + 1))
+    if [ $CHECK_COUNT -eq $MAX_ATTEMPTS ]; then
+        log_security_event "Bad USB No USB no configuration backup was taken."
+        echo "==============================================================="
+        echo " ERROR: Bad USB No USB no configuration backup was taken."
+        echo " Bypassing backup target selection. Workspace falling back to RAM."
+        echo "==============================================================="
+        SKIP_BACKUP=1
+        break
+    fi
+    
+    echo "==============================================================="
+    echo " WARNING: NO USB STORAGE DETECTED! (Attempt $CHECK_COUNT of $MAX_ATTEMPTS)"
+    echo " Please insert a FAT32/EXT4 formatted USB drive into the router."
+    echo " Retrying detection in 10 seconds... (Press Ctrl+C to abort)"
+    echo "==============================================================="
+    log_security_event "Waiting for physical USB storage insertion (Attempt $CHECK_COUNT)..."
+    sleep 10
 done
+
 [ "$W" = "/tmp" ] && [ "$($AWK '/MemAvailable/{print $2}' /proc/meminfo)" -lt 25600 ] && { log_security_event "Insufficient execution memory available."; exit 1; }
 
 # 6. ENFORCED TLS SCRAPING INTERFACE ENTRY (Stripped of -k bypasses)
@@ -131,20 +178,48 @@ command -v sha256sum >/dev/null 2>&1 && H="sha256sum" && F="SHA256SUMS.txt" || H
 rm -f $W/f.zip $W/s.txt $W/u.trx
 
 # 9. INTEGRITY PAYLOAD VALIDATION INVOCATION
+
+if [ $SKIP_BACKUP -eq 0 ] && [ -n "$USB_BACKUP_PATH" ]; then
+    log_security_event "Executing pre-saved configuration export to USB target..."
+    
+    BACKUP_DATE=$(date +%d%m%Y_%H%M)
+    BACKUP_DIR="$USB_BACKUP_PATH/configbackup_$BACKUP_DATE"
+    
+    mkdir -p "$BACKUP_DIR"
+    if [ -d "$BACKUP_DIR" ]; then
+        BACKUP_FILE="$BACKUP_DIR/freshtomato_config.cfg"
+        $NVRAM export --text > "$BACKUP_FILE"
+        sync
+        sleep 2
+        
+        if [ -s "$BACKUP_FILE" ]; then
+            log_security_event "SUCCESS: Configuration backup securely saved to USB."
+            echo "---------------------------------------------------------------"
+            echo " Backup saved to: $BACKUP_FILE"
+            echo "---------------------------------------------------------------"
+        else
+            log_security_event "CRITICAL: Backup file generation failed. Halting upgrade."
+            exit 1
+            _exit 1
+        fi
+    else
+        log_security_event "CRITICAL: Failed to generate backup directory. Halting upgrade."
+        exit 1
+        _exit 1
+    fi
+fi
+
 $CURL $CURL_OPTS -A "$UA" -sf -o "$W/f.zip" "$U$Z"
 sleep 3
 $CURL $CURL_OPTS -A "$UA" -sf -o "$W/s.txt" "$U$F"
-
 [ ! -s "$W/f.zip" ] || [ ! -s "$W/s.txt" ] && { log_security_event "Download payload empty or rejected by remote host."; exit 1; }
-
-# Upstream File Content Size Boundary Guard (Refuse files smaller than 10MB)
 [ $(wc -c < "$W/f.zip") -lt 10485760 ] && { log_security_event "Downloaded archive fails content size invariants."; exit 1; }
-
-if ! $H "$W/f.zip" | $GREP -qi "$($AWK '{print $1}' $W/s.txt)"; then 
+if ! $H "$W/f.zip" | $GREP -qi "$($AWK '{print $1}' $W/s.txt)"; then
     log_security_event "CRITICAL: Checksum verification validation failure! Deleting tracking elements."
     rm -f $W/f.zip $W/s.txt
     exit 1
 fi
+
 
 # 10. SYSTEM BLOCK DECOMPRESSION AND HARDENED TRX EVALUATION
 $UNZIP -p "$W/f.zip" "*.trx" > $W/u.trx
