@@ -1,0 +1,27 @@
+# Note due to the initial FTAA script being too large this is the script used in schedule script.
+# IMPORTANT ONLY WORKS WITH USB PORT ROUTERS!
+# MIT
+# DO NOT USE THIS IT WILL BRICK YOUR ROUTER. IT IS UNSAFE BETA PROOF OF CONCEPT ONLY! THE IDEAS ARE THE ONLY THING WORTH ANYTHING.
+
+#!/bin/sh
+# FreshTomato Scheduler Loader - Enforce USB Execution Environment Only
+
+USB_PATH=""
+for m in /tmp/mnt/* /mnt/*; do
+    [ -d "$m" ] && [ "$m" != "/tmp/mnt/*" ] && [ "$m" != "/mnt/*" ] && [ "$(df -k "$m" | awk 'NR==2{print $4}')" -gt 61440 ] && USB_PATH="$m" && break
+done
+
+if [ -z "$USB_PATH" ]; then
+    logger -t "FTAA_LOADER" "[CRITICAL] No compliant USB storage detected. Aborting."
+    exit 1
+fi
+
+MAIN_SCRIPT="$USB_PATH/FTAA.sh"
+
+if [ -f "$MAIN_SCRIPT" ]; then
+    chmod +x "$MAIN_SCRIPT"
+    "$MAIN_SCRIPT"
+else
+    logger -t "FTAA_LOADER" "[CRITICAL] Target execution script missing from physical drive root."
+    exit 1
+fi
