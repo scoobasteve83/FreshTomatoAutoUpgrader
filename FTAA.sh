@@ -137,7 +137,7 @@ fi
 if [ "$IS_T64" -eq 1 ]; then
     # Tomato64 stores images inside a flat root architecture directory
     U="$B$A/"
-    Z=$(echo "$I" | $GREP -oE 'href="[^"]+'$M'[^"]+\.zip"' | $SED 's/href="//' | head -n 1)
+    Z=$(echo "$I" | $GREP -oE 'href="[^"]+'$M'[^"]+\.tzst"' | $SED 's/href="//' | head -n 1)
 else
     # Legacy FreshTomato branches scrape based on chronological directory layout
     L=$(echo "$I" | $GREP -o 'href="[0-9]\{4\}\.[0-9]\+/"' | $SED 's/href="//;s/\///;s/"//' | sort -V | tail -n 1)
@@ -154,25 +154,32 @@ fi
 [ -z "$Z" ] && { log_security_event "Matching firmware image string not found on remote server."; exit 1; }
 sleep 4
 
+
 # 8. ADAPTIVE SIGNATURE PATTERN SELECTION
 command -v sha256sum >/dev/null 2>&1 && H="sha256sum" && F="SHA256SUMS.txt" || H="md5sum" && F="MD5SUMS.txt"
-rm -f $W/f.zip $W/s.txt $W/u.trx
+
+# Set the filename variable depending on the architecture platform
+if [ "$IS_T64" -eq 1 ]; then
+    FIRMWARE_FILE="$W/f.tzst"
+else
+    FIRMWARE_FILE="$W/f.zip"
+fi
+
+# Clean out all possible historical tracking binaries from the workspace folder
+rm -f $W/f.zip $W/f.tzst $W/s.txt $W/u.trx
+
 
 # 9. INTEGRITY PAYLOAD VALIDATION INVOCATION
-
 if [ $SKIP_BACKUP -eq 0 ] && [ -n "$USB_BACKUP_PATH" ]; then
     log_security_event "Executing pre-saved configuration export to USB target..."
-    
     BACKUP_DATE=$(date +%d%m%Y_%H%M)
     BACKUP_DIR="$USB_BACKUP_PATH/configbackup_$BACKUP_DATE"
-    
     mkdir -p "$BACKUP_DIR"
     if [ -d "$BACKUP_DIR" ]; then
         BACKUP_FILE="$BACKUP_DIR/freshtomato_config.cfg"
         $NVRAM export --text > "$BACKUP_FILE"
         sync
         sleep 2
-        
         if [ -s "$BACKUP_FILE" ]; then
             log_security_event "SUCCESS: Configuration backup securely saved to USB."
             echo "---------------------------------------------------------------"
@@ -190,54 +197,83 @@ if [ $SKIP_BACKUP -eq 0 ] && [ -n "$USB_BACKUP_PATH" ]; then
     fi
 fi
 
-$CURL $CURL_OPTS -A "$UA" -sf -o "$W/f.zip" "$U$Z"
+$CURL $CURL_OPTS -A "$UA" -sf -o "$FIRMWARE_FILE" "$U$Z"
 sleep 3
 $CURL $CURL_OPTS -A "$UA" -sf -o "$W/s.txt" "$U$F"
-[ ! -s "$W/f.zip" ] || [ ! -s "$W/s.txt" ] && { log_security_event "Download payload empty or rejected by remote host."; exit 1; }
-[ $(wc -c < "$W/f.zip") -lt 10485760 ] && { log_security_event "Downloaded archive fails content size invariants."; exit 1; }
-if ! $H "$W/f.zip" | $GREP -qi "$($AWK '{print $1}' $W/s.txt)"; then
+
+[ ! -s "$FIRMWARE_FILE" ] || [ ! -s "$W/s.txt" ] && { log_security_event "Download payload empty or rejected by remote host."; exit 1; }
+
+[ $(wc -c < "$FIRMWARE_FILE") -lt 10485760 ] && { log_security_event "Downloaded archive fails content size invariants."; exit 1; }
+
+if ! $H "$FIRMWARE_FILE" | $GREP -qi "$($AWK '{print $1}' $W/s.txt)"; then
     log_security_event "CRITICAL: Checksum verification validation failure! Deleting tracking elements."
-    rm -f $W/f.zip $W/s.txt
+    rm -f "$FIRMWARE_FILE" "$W/s.txt"
     exit 1
 fi
 
 
+
 # 10. SYSTEM BLOCK DECOMPRESSION AND HARDENED TRX EVALUATION
-$UNZIP -p "$W/f.zip" "*.trx" > $W/u.trx
-
-if [ -s "$W/u.trx" ]; then
-    # Structural Audit: Enforce mandatory Broadcom/MediaTek 'HDR0' magic bytes signature
-    TRX_MAGIC=$($HEXDUMP -n 4 -e '"%c"' "$W/u.trx" 2>/dev/null)
-    if [ "$TRX_MAGIC" != "HDR0" ]; then
-        log_security_event "SECURITY REJECTION: Image lacks mandatory 'HDR0' magic hardware bytes."
-        rm -f $W/f.zip $W/s.txt $W/u.trx
-        exit 1
-    fi
-
-    # Boundary Cross-Check: Match physical byte footprint against the embedded size header [bytes 4-7]
-    LEN_HEX=$($HEXDUMP -s 4 -n 4 -e '1/4 "%08x"' "$W/u.trx" 2>/dev/null)
-    LEN_DEC=$((0x$LEN_HEX))
-    ACTUAL_SIZE=$(wc -c < "$W/u.trx")
-    if [ "$ACTUAL_SIZE" -lt "$LEN_DEC" ]; then
-        log_security_event "SECURITY REJECTION: Target byte stream footprint smaller than declared header length."
-        rm -f $W/f.zip $W/s.txt $W/u.trx
-        exit 1
-    fi
-
-    # SIMULATION MODE EVALUATION CONTROL
+if [ "$IS_T64" -eq 1 ]; then
+    # =========================================================================
+    # TOMATO64 DEPLOYMENT PIPELINE (.TZST VIA UPGRADE ENGINE)
+    # =========================================================================
     if [ "$SIMULATION_MODE" -eq 1 ]; then
-        log_security_event "DRY-RUN SUCCESSFUL: Payload verified authentic. Flashing skipped by simulation mode toggle."
-        rm -f $W/f.zip $W/s.txt $W/u.trx
+        log_security_event "DRY-RUN SUCCESSFUL (T64): Payload verified authentic. Flashing skipped by simulation mode toggle."
+        rm -f "$W/f.tzst" "$W/s.txt"
         exit 0
     else
         log_security_event "Payload verified. Revoking execution rights on physical USB media before write invocation..."
         
-        # Self-destruct flag: Removes executable status from the physical USB drive
+        # Self-destruct flag: Locks out future script loops on the physical partition
         chmod -x "$0"
         sync
         sleep 1
         
-        log_security_event "Commencing hardware image installation wrapper..."
-        $WRITE $W/u.trx linux && $REBOOT
+        log_security_event "Commencing Tomato64 native hardware upgrade pipeline..."
+        /sbin/upgrade "$W/f.tzst" && $REBOOT
+    fi
+
+else
+    # =========================================================================
+    # LEGACY FRESHTOMATO MIPS/ARM 32-BIT PIPELINE (.ZIP VIA MTD-WRITE)
+    # =========================================================================
+    $UNZIP -p "$W/f.zip" "*.trx" > $W/u.trx
+    
+    if [ -s "$W/u.trx" ]; then
+        # Structural Audit: Enforce mandatory Broadcom/MediaTek 'HDR0' magic bytes signature
+        TRX_MAGIC=$($HEXDUMP -n 4 -e '"%c"' "$W/u.trx" 2>/dev/null)
+        if [ "$TRX_MAGIC" != "HDR0" ]; then
+            log_security_event "SECURITY REJECTION: Image lacks mandatory 'HDR0' magic hardware bytes."
+            rm -f $W/f.zip $W/s.txt $W/u.trx
+            exit 1
+        fi
+
+        # Boundary Cross-Check: Match physical byte footprint against the embedded size header [bytes 4-7]
+        LEN_HEX=$($HEXDUMP -s 4 -n 4 -e '1/4 "%08x"' "$W/u.trx" 2>/dev/null)
+        LEN_DEC=$((0x$LEN_HEX))
+        ACTUAL_SIZE=$(wc -c < "$W/u.trx")
+        if [ "$ACTUAL_SIZE" -lt "$LEN_DEC" ]; then
+            log_security_event "SECURITY REJECTION: Target byte stream footprint smaller than declared header length."
+            rm -f $W/f.zip $W/s.txt $W/u.trx
+            exit 1
+        fi
+
+        # SIMULATION MODE EVALUATION CONTROL
+        if [ "$SIMULATION_MODE" -eq 1 ]; then
+            log_security_event "DRY-RUN SUCCESSFUL: Payload verified authentic. Flashing skipped by simulation mode toggle."
+            rm -f $W/f.zip $W/s.txt $W/u.trx
+            exit 0
+        else
+            log_security_event "Payload verified. Revoking execution rights on physical USB media before write invocation..."
+            
+            # Self-destruct flag: Locks out future script loops on the physical partition
+            chmod -x "$0"
+            sync
+            sleep 1
+            
+            log_security_event "Commencing hardware image installation wrapper..."
+            $WRITE $W/u.trx linux && $REBOOT
+        fi
     fi
 fi
