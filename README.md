@@ -1,5 +1,7 @@
 Note this script is Untested WIP (Work In Progress) and will likely brick your router. May have security implications and is only a proof of concept DO NOT USE IN CURRRENT FORM OR PRODUCTION ENVIORNMENT!!!!
 
+Use of this auto upgrader requires a usb port on your router and a known working usb flash drive!
+
 # FreshTomatoAutoUpgrader
 FrestTomatoAutoUpgrade
 # Universal Hardened Auto-Upgrader for Tomato64 & FreshTomato
@@ -23,11 +25,11 @@ This script implements robust mitigation layers to eliminate path injection vuln
 *   **Metadata Boundary Boundary Matches:** Evaluates structural byte limits encoded within the file headers against the physical storage footprint, completely eliminating partial download execution attempts.
 *   **Absolute Path Execution Sandboxing:** Binds execution commands to explicit system locations (e.g., `/usr/bin/curl`, `/bin/grep`), neutralizing variable runtime overrides.
 
-## How to Test via Simulation Mode
+## How to Test via Simulation Mode USB FLASH DRIVE REQUIRED IN ALL CASES!!!
 
 By default, the script ships with **`SIMULATION_MODE=1`** enabled at the top of the file. This allows safe runtime testing across any target environment.
 
-1. Copy the full script text block.
+1. Copy the full script and place it in the root folder of your USB FLASH DRIVE FTAA.sh
 2. In the router Web GUI, navigate to **Status > Logs** or open your favorite syslog tail viewer via SSH (`logread -f`).
 3. Run the script manually over an SSH session or via **Tools > System Commands**.
 4. Check the logs. A successful pass will output:
@@ -38,7 +40,7 @@ By default, the script ships with **`SIMULATION_MODE=1`** enabled at the top of 
 ## Installation via GUI Scheduler
 
 1. Access your router's user dashboard via your browser.
-2. Navigate to **Administration** ➔ **Scheduler**.
+2. Navigate to **Administration** ➔ **Scheduler**. The Schedular script only!!!
 3. Under the **Custom Script** parameter interface, click **Enabled**.
 4. Configure the temporal constraints to run once daily (e.g., set to an obscure time window like `Every Day` at `04:19 AM`). 
 5. Copy the minified shell code block directly into the large textual command layout parameter box.
