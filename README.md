@@ -27,6 +27,19 @@ This script implements robust mitigation layers to eliminate path injection vuln
 *   **Metadata Boundary Boundary Matches:** Evaluates structural byte limits encoded within the file headers against the physical storage footprint, completely eliminating partial download execution attempts.
 *   **Absolute Path Execution Sandboxing:** Binds execution commands to explicit system locations (e.g., `/usr/bin/curl`, `/bin/grep`), neutralizing variable runtime overrides.
 
+*   # INSTALLATION INSTRUCTIONS:
+# 1. Log into your router's Web GUI (e.g., http://192.168.1.1)
+# 2. In the left-hand sidebar menu, navigate to: 
+#    Administration -> Scheduler
+# 3. Scroll down to the "Custom Commands" or "Cron" settings section.
+# 4. Paste this entire code block into the command entry text field.
+# 5. Set your preferred execution intervals (e.g., Daily at 03:00 AM).
+# 6. Click "Save" at the bottom of the page to apply the schedule.
+#
+# FILESYSTEM PLACEMENT REQUIREMENTS:
+# * The main "FTAA.sh" script MUST be saved on the ROOT folder of your 
+#   physically attached USB drive (e.g., /tmp/mnt/sda1/FTAA.sh)
+
 ## How to Test via Simulation Mode USB FLASH DRIVE REQUIRED IN ALL CASES!!!
 
 By default, the script ships with **`SIMULATION_MODE=1`** enabled at the top of the file. This allows safe runtime testing across any target environment.
