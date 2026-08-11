@@ -179,7 +179,7 @@ if [ $SKIP_BACKUP -eq 0 ] && [ -n "$USB_BACKUP_PATH" ]; then
     if [ -d "$BACKUP_DIR" ]; then
         BACKUP_FILE="$BACKUP_DIR/freshtomato_config.cfg"
         
-        # CHANGED: Native universal monolithic binary snapshot
+        # Native universal monolithic binary snapshot
         $NVRAM save "$BACKUP_FILE"
         
         sync
@@ -193,12 +193,10 @@ if [ $SKIP_BACKUP -eq 0 ] && [ -n "$USB_BACKUP_PATH" ]; then
         else
             log_security_event "CRITICAL: Backup file generation failed. Halting upgrade."
             exit 1
-            _exit 1
         fi
     else
         log_security_event "CRITICAL: Failed to generate backup directory. Halting upgrade."
         exit 1
-        _exit 1
     fi
 fi
 
