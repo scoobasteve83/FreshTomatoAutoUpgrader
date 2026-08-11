@@ -4,7 +4,7 @@ Use of this auto upgrader requires a usb port on your router and a known working
 
 #CURRENT STATUS: UNTESTED BETA DO NOT USE MAY BRICK YOUR ROUTER! 
 
-# FreshTomatoAutoUpgrader
+# FreshTomatoAutoUpgrader 2026 or Higher Versions ONLY!!!
 FrestTomatoAutoUpgrade
 # Universal Hardened Auto-Upgrader for Tomato64 & FreshTomato
 
