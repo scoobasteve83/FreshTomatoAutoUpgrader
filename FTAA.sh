@@ -175,11 +175,16 @@ if [ $SKIP_BACKUP -eq 0 ] && [ -n "$USB_BACKUP_PATH" ]; then
     BACKUP_DATE=$(date +%d%m%Y_%H%M)
     BACKUP_DIR="$USB_BACKUP_PATH/configbackup_$BACKUP_DATE"
     mkdir -p "$BACKUP_DIR"
+    
     if [ -d "$BACKUP_DIR" ]; then
         BACKUP_FILE="$BACKUP_DIR/freshtomato_config.cfg"
-        $NVRAM export --text > "$BACKUP_FILE"
+        
+        # CHANGED: Native universal monolithic binary snapshot
+        $NVRAM save "$BACKUP_FILE"
+        
         sync
         sleep 2
+        
         if [ -s "$BACKUP_FILE" ]; then
             log_security_event "SUCCESS: Configuration backup securely saved to USB."
             echo "---------------------------------------------------------------"
@@ -197,12 +202,12 @@ if [ $SKIP_BACKUP -eq 0 ] && [ -n "$USB_BACKUP_PATH" ]; then
     fi
 fi
 
+# Firmware Download & Security Verification Block (Kept Intact)
 $CURL $CURL_OPTS -A "$UA" -sf -o "$FIRMWARE_FILE" "$U$Z"
 sleep 3
 $CURL $CURL_OPTS -A "$UA" -sf -o "$W/s.txt" "$U$F"
 
 [ ! -s "$FIRMWARE_FILE" ] || [ ! -s "$W/s.txt" ] && { log_security_event "Download payload empty or rejected by remote host."; exit 1; }
-
 [ $(wc -c < "$FIRMWARE_FILE") -lt 10485760 ] && { log_security_event "Downloaded archive fails content size invariants."; exit 1; }
 
 if ! $H "$FIRMWARE_FILE" | $GREP -qi "$($AWK '{print $1}' $W/s.txt)"; then
@@ -210,8 +215,6 @@ if ! $H "$FIRMWARE_FILE" | $GREP -qi "$($AWK '{print $1}' $W/s.txt)"; then
     rm -f "$FIRMWARE_FILE" "$W/s.txt"
     exit 1
 fi
-
-
 
 # 10. SYSTEM BLOCK DECOMPRESSION AND HARDENED TRX EVALUATION
 if [ "$IS_T64" -eq 1 ]; then
